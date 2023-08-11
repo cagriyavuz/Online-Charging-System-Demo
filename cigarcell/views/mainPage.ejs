@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+
+</head>
+
+<body>
+    <style>
+        body {
+            background: rgb(201, 247, 247);
+            background: linear-gradient(90deg, rgba(201, 247, 247, 1) 0%, rgba(148, 223, 226, 1) 29%, rgba(97, 206, 209, 1) 48%, rgb(35, 167, 167) 70%);
+        }
+        
+        label {
+            color: white;
+        }
+        
+        .content {
+            position: relative;
+            margin: 25px;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .circular-progress {
+            position: relative;
+            height: 180px;
+            width: 180px;
+            border-radius: 50%;
+            background: conic-gradient(#7d2ae8 3.6deg, #ededed 0deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .circular-progress::before {
+            content: "";
+            position: absolute;
+            height: 140px;
+            width: 140px;
+            border-radius: 50%;
+            background-color: #fff;
+        }
+        
+        .progress-value {
+            position: relative;
+            font-size: 40px;
+            font-weight: 600;
+            color: #7d2ae8;
+        }
+    </style>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <div class="content">
+        <div class="d-flex justify-content-center">
+            <div class="d-flex flex-column mt-5">
+                <p class="fs-5 text-dark-emphasis" id="internet">Internet</p>
+                <div class="circular-progress">
+                    <span class="progress-value">0%</span>
+                </div>
+                <p class="fs-5 text-dark-emphasis" id="voiceT">Voice</p>
+                <div class="circular-progress" id="voice">
+                    <span class="progress-value" id="voice-value">0%</span>
+                </div>
+                <p class="fs-5 text-dark-emphasis" id="smsT">SMS</p>
+                <div class="circular-progress" id="sms">
+                    <span class="progress-value" id="sms-value">0%</span>
+                </div>
+            </div>
+            <div className="remaining use">
+                <table id="use_table" class="table w-25 table-dark table-responsive table-striped" style="float: right; margin-right:10px; margin-top: -250px;"></table>
+            </div>
+            <div className="end_date">
+                <table id="date_table" class="table w-25 table-dark table-responsive table-striped" style="float: right; margin-top: -200px; margin-right:345px;"></table>
+            </div>
+            <div className="user_info">
+                <table id="user_table" class="table w-25 table-dark table-responsive table-striped" style="float: right; margin-top: -500px; margin-right:345px; "></table>
+            </div>
+        </div>
+        <div>
+            <button type="button" class="btn btn-dark btn-lg" onclick="location.href= 'logout' ">Log Out</button>
+        </div>
+        <div>
+            <form action="/api/updateUsage" onsubmit="submit" method="post" id="form">
+                <div class="d-flex justify-content-end">
+                    <button id="btn" type="submit" class="btn btn-dark btn-lg d-flex justify-content-between" onclick="submit">Create Usage!</button>
+                </div>
+            </form>
+            <div class="d-flex justify-content-end">
+                <p class="fs-5 text-dark-emphasis " id="usage"></p>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        const veriYazdirmaUser = (data) => {
+            const tbl = document.getElementById('user_table')
+            const tblBody = document.createElement("tbody");
+            for (const keys in data) {
+                if (keys != "subsId" && keys != "PASSWORD") {
+                    if (keys == "STATUS") {
+                        data[keys] = "Aktif"
+                    }
+                    if (keys == "SDate") {
+                        // keys = "SDate";
+                        data[keys] = data[keys].slice(0, 10)
+                    }
+                    const row = document.createElement("tr");
+                    const cell = document.createElement("td");
+                    const cell2 = document.createElement("td");
+                    // console.log(data);
+                    cell.innerHTML = keys;
+                    cell2.innerHTML = data[keys];
+
+                    row.appendChild(cell);
+                    row.appendChild(cell2);
+                    tblBody.appendChild(row);
+                }
+            }
+
+            tbl.appendChild(tblBody);
+            document.body.appendChild(tbl);
+            tbl.setAttribute("border", "2");
+        }
+        let bal_e_data, bal_e_voice, bal_e_sms;
+
+        const veriYazdirmaBalance = (data) => {
+            // console.log(data);
+            const tbl = document.getElementById("use_table");
+            const tb2 = document.getElementById("date_table");
+            const tblBody = document.createElement("tbody");
+            const tb2Body = document.createElement("tbody");
+            let row, cell, cell2
+            for (const keys in data) {
+                if (keys != "subsId" && keys != "packId") {
+                    if (keys == "sDate" || keys == "eDate") {
+                        data[keys] = data[keys].slice(0, 10)
+                        row = document.createElement("tr");
+                        cell = document.createElement("td");
+                        cell2 = document.createElement("td");
+                        cell.innerHTML = keys;
+                        cell2.innerHTML = data[keys];
+
+                        row.appendChild(cell);
+                        row.appendChild(cell2);
+                        tb2Body.appendChild(row);
+
+                    } else {
+                        function getPackage() {
+                            fetch('/getPackage')
+                                .then(response => response.json())
+                                .then((son) => {
+                                    // console.log(son[0]); // kullanıcının bütün paketi
+                                    packData = son[0].amount_data;
+                                    packSms = son[0].amount_sms;
+                                    packVoice = son[0].amount_voice;
+
+                                    let text = "Use Will Occur: \n " +
+                                        `Data: ${random_data} \n` +
+                                        `SMS: ${random_sms} \n` +
+                                        `Voice: ${random_voice}`;
+                                    usageText.innerText = text;
+
+                                    if (keys == "bal_lvl_data") {
+                                        let sonData = data[keys] * 100 / packData
+                                        let internet = document.getElementById("internet");
+                                        internet.innerHTML = "Remaning Data: " + data[keys];
+                                        sonData = Math.floor(sonData);
+                                        let circularProgress = document.querySelector(".circular-progress"),
+                                            progressValue = document.querySelector(".progress-value");
+                                        let progressStartValue = 0,
+                                            progressEndValue = sonData,
+                                            speed = 100;
+
+                                        let progress = setInterval(() => {
+                                            progressStartValue++;
+                                            progressValue.textContent = `${progressStartValue}%`
+                                            circularProgress.style.background = `conic-gradient(#7d2ae8 ${progressStartValue * 3.6}deg, #ededed 0deg)`
+                                            if (progressStartValue == progressEndValue) {
+                                                clearInterval(progress);
+                                            }
+                                        }, speed);
+                                    }
+                                    if (keys == "bal_lvl_voice") {
+                                        // console.log(data[keys]);
+                                        let voice = document.getElementById("voiceT");
+                                        let sonVoice = data[keys] * 100 / packVoice
+                                        voice.innerHTML = "Remaning Voice: " + data[keys];
+                                        sonVoice = Math.floor(sonVoice);
+                                        let circularProgress = document.getElementById("voice"),
+                                            progressValue = document.getElementById("voice-value");
+                                        let progressStartValue = 0,
+                                            progressEndValue = sonVoice,
+                                            speed = 100;
+
+                                        let progress = setInterval(() => {
+                                            progressStartValue++;
+                                            progressValue.textContent = `${progressStartValue}%`
+                                            circularProgress.style.background = `conic-gradient(#7d2ae8 ${progressStartValue * 3.6}deg, #ededed 0deg)`
+                                            if (progressStartValue == progressEndValue) {
+                                                clearInterval(progress);
+                                            }
+                                        }, speed);
+                                    }
+                                    if (keys == "bal_lvl_sms") {
+                                        let sonSms = data[keys] * 100 / packSms
+                                        sonSms = Math.floor(sonSms);
+                                        let sms = document.getElementById("smsT");
+                                        sms.innerHTML = "Remaning SMS: " + data[keys];
+                                        let circularProgress = document.getElementById("sms"),
+                                            progressValue = document.getElementById("sms-value");
+                                        let progressStartValue = 0,
+                                            progressEndValue = sonSms,
+                                            speed = 100;
+
+                                        let progress = setInterval(() => {
+                                            progressStartValue++;
+                                            progressValue.textContent = `${progressStartValue}%`
+                                            circularProgress.style.background = `conic-gradient(#7d2ae8 ${progressStartValue * 3.6}deg, #ededed 0deg)`
+                                            if (progressStartValue == progressEndValue) {
+                                                clearInterval(progress);
+                                            }
+                                        }, speed);
+                                    }
+
+                                    // console.log(sonData);
+
+                                })
+                        }
+                        getPackage();
+                    }
+                }
+            }
+            tbl.appendChild(tblBody);
+            tb2.appendChild(tb2Body);
+            document.body.appendChild(tbl);
+            document.body.appendChild(tb2);
+            tbl.setAttribute("border", "2");
+            tb2.setAttribute("border", "2");
+        }
+
+        function getUser() {
+            fetch('/getUser')
+                .then(response => response.json())
+                .then((son) => {
+                    // console.log(son);
+                    veriYazdirmaUser(son)
+                })
+        }
+
+        function getBalance() {
+            fetch('/getBalance')
+                .then(response => response.json())
+                .then((son) => {
+                    // console.log(son);
+                    veriYazdirmaBalance(son[0])
+                })
+        }
+
+        let packData, packVoice, PackSms;
+
+        getUser();
+        getBalance();
+
+        let usageText = document.getElementById("usage");
+        let btn = document.getElementById("btn");
+        let form = document.getElementById('form');
+        let random_voice = Math.floor((Math.random() * 10) + 1);
+        let random_data = Math.floor(Math.random() * (3072 - 1024 + 1) + 1024); //1 ve 3 gb aralığında ama mb olarak
+        let random_sms = Math.floor((Math.random() * 10) + 1);
+
+        let voice = document.createElement('input');
+        let sms = document.createElement('input');
+        let data = document.createElement('input');
+
+        voice.setAttribute('name', 'voice');
+        sms.setAttribute('name', 'sms');
+        data.setAttribute('name', 'data');
+
+        voice.style.opacity = 0;
+        data.style.opacity = 0;
+        sms.style.opacity = 0;
+
+        voice.value = random_voice;
+        data.value = random_data;
+        sms.value = random_sms;
+
+        form.appendChild(voice);
+        form.appendChild(sms);
+        form.appendChild(data);
+
+
+        function submit() {
+            axios('/api/updateUsage').then((result) => {
+                console.log(result);
+                // location.href('/mainPage');
+            }).catch((err) => {
+                console.log(err);
+            });
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+
+
+</body>
+
+</html>
